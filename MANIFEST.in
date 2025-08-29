@@ -1,0 +1,4 @@
+include LICENSE
+include README.md
+recursive-include obj_observe *.py
+include obj_observe/py.typed

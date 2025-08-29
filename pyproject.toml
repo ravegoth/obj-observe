@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obj-observe"
+version = "0.1.1"
+description = "Transparent Object Change Observers for Python objects and dicts"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Traian", email = "contact@tra1an.com" }]
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Intended Audience :: Developers",
+	"License :: OSI Approved :: MIT License",
+	"Programming Language :: Python",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Topic :: Software Development :: Libraries",
+	"Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/ravegoth/obj-observe"
+Issues = "https://github.com/ravegoth/obj-observe/issues"
+Source = "https://github.com/ravegoth/obj-observe"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+obj_observe = ["py.typed"]
