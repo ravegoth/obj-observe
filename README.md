@@ -2,6 +2,9 @@
 
 `obj-observe` is a simple, zero-dependency Python library for observing changes on object attributes and dictionary keys.
 
+[![PyPI version](https://img.shields.io/pypi/v/obj-observe.svg)](https://pypi.org/project/obj-observe/)
+[![Python versions](https://img.shields.io/pypi/pyversions/obj-observe.svg)](https://pypi.org/project/obj-observe/)
+
 ## Installation
 
 ```bash
