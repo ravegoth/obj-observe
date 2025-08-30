@@ -100,16 +100,6 @@ Detaches observers from an object.
 
 ---
 
-## Running Tests
-
-To run the included test suite:
-
-```bash
-python test.py
-```
-
----
-
 ## License
 
 MIT
