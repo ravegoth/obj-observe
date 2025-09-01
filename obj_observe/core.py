@@ -13,6 +13,7 @@ Implementation notes:
 """
 from __future__ import annotations
 from typing import Any, Callable, Dict, Iterable, Optional, overload
+import weakref
 
 Observer = Callable[[Any, Any], None]
 
@@ -116,18 +117,29 @@ def add_observer(obj: Any, attr: str, callback: Observer) -> None:
         first_time_for_instance = True
         # Slotted classes without __dict__ cannot accept new attributes; use fallback container on class
         if not hasattr(obj, '__dict__') and not hasattr(obj.__class__, '__allow_observe_storage__'):
-            obj.__class__.__allow_observe_storage__ = {}  # type: ignore[attr-defined]
+            obj.__class__.__allow_observe_storage__ = weakref.WeakKeyDictionary()  # type: ignore[attr-defined]
         if hasattr(obj, '__dict__'):
             obj.__observers__ = {}  # type: ignore[attr-defined]
             obj.__is_observing__ = {}  # type: ignore[attr-defined]
         else:
-            # Store per-instance maps inside class-level dict keyed by id
-            storage = obj.__class__.__allow_observe_storage__  # type: ignore[attr-defined]
-            storage[id(obj)] = {'__observers__': {}, '__is_observing__': {}}
+            # Store per-instance maps inside class-level weak dict keyed by object
+            storage_map = obj.__class__.__allow_observe_storage__  # type: ignore[attr-defined]
+            storage_map[obj] = {'__observers__': {}, '__is_observing__': {}}
+            cls = obj.__class__
+
+            def _finalizer(cls: type = cls) -> None:
+                if hasattr(cls, '__observe_refcount__'):
+                    cls.__observe_refcount__ -= 1  # type: ignore[attr-defined]
+                    if cls.__observe_refcount__ <= 0 and hasattr(cls, '__original_setattr__'):
+                        cls.__setattr__ = cls.__original_setattr__  # type: ignore[attr-defined]
+                        del cls.__original_setattr__  # type: ignore[attr-defined]
+                        del cls.__observe_refcount__  # type: ignore[attr-defined]
+
+            storage_map[obj]['finalizer'] = weakref.finalize(obj, _finalizer)
 
     # Resolve storage (normal attribute vs slotted fallback)
     if not hasattr(obj, '__dict__'):
-        storage = obj.__class__.__allow_observe_storage__[id(obj)]  # type: ignore[attr-defined]
+        storage = obj.__class__.__allow_observe_storage__[obj]  # type: ignore[attr-defined]
         if attr not in storage['__observers__']:
             storage['__observers__'][attr] = []
         storage['__observers__'][attr].append(callback)
@@ -144,7 +156,11 @@ def add_observer(obj: Any, attr: str, callback: Observer) -> None:
 
         def new_setattr(self, name, value):  # type: ignore[no-untyped-def]
             if not hasattr(self, '__dict__'):
-                storage = self.__class__.__allow_observe_storage__[id(self)]  # type: ignore[attr-defined]
+                storage_map = self.__class__.__allow_observe_storage__  # type: ignore[attr-defined]
+                storage = storage_map.get(self)
+                if storage is None:
+                    self.__class__.__original_setattr__(self, name, value)  # type: ignore[attr-defined]
+                    return
                 is_observing = storage['__is_observing__']
                 observers_map = storage['__observers__']
             else:
@@ -185,15 +201,19 @@ def remove_observers(obj: Any, attr: Optional[str] = None) -> None:
 
     if not hasattr(obj, '__observers__'):
         # Possibly slotted fallback storage
-        if hasattr(obj.__class__, '__allow_observe_storage__') and id(obj) in obj.__class__.__allow_observe_storage__:  # type: ignore[attr-defined]
-            storage = obj.__class__.__allow_observe_storage__[id(obj)]  # type: ignore[attr-defined]
+        storage_map = getattr(obj.__class__, '__allow_observe_storage__', None)
+        if storage_map is not None and obj in storage_map:
+            storage = storage_map[obj]
             if attr:
                 storage['__observers__'].pop(attr, None)
             else:
                 storage['__observers__'].clear()
             if not storage['__observers__']:
                 # Remove storage entry and maybe cleanup class patch
-                del obj.__class__.__allow_observe_storage__[id(obj)]  # type: ignore[attr-defined]
+                finalizer = storage.get('finalizer')
+                if finalizer:
+                    finalizer.detach()
+                del storage_map[obj]
                 cls = obj.__class__
                 if hasattr(cls, '__observe_refcount__'):
                     cls.__observe_refcount__ -= 1  # type: ignore[attr-defined]
@@ -235,8 +255,9 @@ def remove_observer(obj: Any, attr: str, callback: Observer) -> None:
         return
 
     if not hasattr(obj, '__observers__'):
-        if hasattr(obj.__class__, '__allow_observe_storage__') and id(obj) in obj.__class__.__allow_observe_storage__:  # type: ignore[attr-defined]
-            storage = obj.__class__.__allow_observe_storage__[id(obj)]  # type: ignore[attr-defined]
+        storage_map = getattr(obj.__class__, '__allow_observe_storage__', None)
+        if storage_map is not None and obj in storage_map:
+            storage = storage_map[obj]
             lst = storage['__observers__'].get(attr)
             if not lst:
                 return

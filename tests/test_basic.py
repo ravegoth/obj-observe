@@ -161,11 +161,27 @@ class TestObserve(unittest.TestCase):
 
     def test_attribute_added_later(self):
         class X:
-            __slots__ = ('foo',)
+            __slots__ = ('foo', '__weakref__')
+
         x = X()
         observe(x, 'foo', lambda o, n: None)
         x.foo = 3
         self.assertEqual(x.foo, 3)
+
+        # Allow x to be garbage collected without explicit cleanup
+        import gc, weakref
+
+        ref = weakref.ref(x)
+        del x
+        gc.collect()
+        self.assertIsNone(ref())
+
+        # After GC, class-level storage should be cleared and new instances work
+        y = X()
+        y.foo = 1  # should not raise
+        observe(y, 'foo', lambda o, n: None)
+        y.foo = 2
+        self.assertEqual(y.foo, 2)
 
     def test_attribute_removed_remaining_instance(self):
         p1, p2 = Player(1), Player(2)
