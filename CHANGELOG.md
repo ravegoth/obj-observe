@@ -13,3 +13,8 @@ Changelog
 
 - Tests: added coverage for slotted classes (with/without `__weakref__`), WeakMethod behavior, and basic concurrency.
 
+
+## v0.1.4
+
+- Broaden Python support to 3.8+ (was 3.9+).
+- Add Python 3.8 classifier in packaging metadata.
