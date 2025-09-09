@@ -169,7 +169,8 @@ class TestObserve(unittest.TestCase):
         self.assertEqual(x.foo, 3)
 
         # Allow x to be garbage collected without explicit cleanup
-        import gc, weakref
+        import gc
+        import weakref
 
         ref = weakref.ref(x)
         del x
@@ -249,7 +250,8 @@ class TestObserve(unittest.TestCase):
         self.assertEqual(seen, [1])
 
     def test_slotted_with_weakref_gc_cleanup(self):
-        import gc, weakref as _wr
+        import gc
+        import weakref as _wr
         class W:
             __slots__ = ('v', '__weakref__')
             def __init__(self):
@@ -265,7 +267,8 @@ class TestObserve(unittest.TestCase):
         self.assertFalse(hasattr(W, '__original_setattr__') and hasattr(W, '__observe_refcount__'))
 
     def test_bound_method_observer_does_not_keep_instance_alive(self):
-        import gc, weakref as _wr
+        import gc
+        import weakref as _wr
         class Emitter:
             def __init__(self):
                 self.x = 0

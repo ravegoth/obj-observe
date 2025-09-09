@@ -12,7 +12,7 @@ Implementation notes:
     * ObservableDict handles its own recursion guard per key.
 """
 from __future__ import annotations
-from typing import Any, Callable, Dict, Iterable, Optional, Union, overload, TypedDict
+from typing import Any, Callable, Dict, Iterable, Optional, Union, overload, TypedDict, cast
 import threading
 import weakref
 
@@ -36,7 +36,7 @@ def _weak_or_id_key(obj: Any) -> tuple[Dict[Any, _StorageBucket], Any, bool]:
     storage_map: Optional[Dict[Any, _StorageBucket]] = getattr(
         obj.__class__, '__allow_observe_storage__', None
     )
-    storage_map_id: Optional[Dict[int, _StorageBucket]] = getattr(
+    storage_map_id: Optional[Dict[Any, _StorageBucket]] = getattr(
         obj.__class__, '__allow_observe_storage_by_id__', None
     )
 
@@ -51,13 +51,15 @@ def _weak_or_id_key(obj: Any) -> tuple[Dict[Any, _StorageBucket], Any, bool]:
         if storage_map is None:
             storage_map = weakref.WeakKeyDictionary()  # type: ignore[assignment]
             setattr(obj.__class__, '__allow_observe_storage__', storage_map)
-        return storage_map, obj, True
+        storage_map_typed: Dict[Any, _StorageBucket] = cast(Dict[Any, _StorageBucket], storage_map)
+        return storage_map_typed, obj, True
 
     # Fallback to id(obj) keyed storage
     if storage_map_id is None:
         storage_map_id = {}
         setattr(obj.__class__, '__allow_observe_storage_by_id__', storage_map_id)
-    return storage_map_id, id(obj), False
+    storage_map_id_typed: Dict[Any, _StorageBucket] = cast(Dict[Any, _StorageBucket], storage_map_id)
+    return storage_map_id_typed, id(obj), False
 
 
 def _normalize_callback(callback: Observer) -> ObserverRef:
@@ -128,16 +130,10 @@ class ObservableDict(dict):
 def observe(obj: dict, attr: str, callback: Observer) -> ObservableDict: ...  # noqa: D401
 
 @overload
-def observe(obj: ObservableDict, attr: str, callback: Observer) -> ObservableDict: ...
-
-@overload
 def observe(obj: object, attr: str, callback: Observer) -> object: ...
 
 @overload
 def observe(obj: dict, attr: str) -> Callable[[Observer], Observer]: ...
-
-@overload
-def observe(obj: ObservableDict, attr: str) -> Callable[[Observer], Observer]: ...
 
 @overload
 def observe(obj: object, attr: str) -> Callable[[Observer], Observer]: ...
@@ -190,7 +186,7 @@ def add_observer(obj: Any, attr: str, callback: Observer) -> None:
                 if hasattr(cls, '__observe_refcount__'):
                     cls.__observe_refcount__ -= 1  # type: ignore[attr-defined]
                     if cls.__observe_refcount__ <= 0 and hasattr(cls, '__original_setattr__'):
-                        cls.__setattr__ = cls.__original_setattr__  # type: ignore[attr-defined]
+                        cls.__setattr__ = cls.__original_setattr__  # type: ignore[attr-defined, method-assign]
                         del cls.__original_setattr__  # type: ignore[attr-defined]
                         del cls.__observe_refcount__  # type: ignore[attr-defined]
 
@@ -223,7 +219,7 @@ def add_observer(obj: Any, attr: str, callback: Observer) -> None:
     # Install class-level patch if needed
     cls = obj.__class__
     if not hasattr(cls, '__original_setattr__'):
-        cls.__original_setattr__ = cls.__setattr__  # type: ignore[attr-defined]
+        cls.__original_setattr__ = cls.__setattr__  # type: ignore[attr-defined, assignment, method-assign]
         cls.__observe_refcount__ = 0  # type: ignore[attr-defined]
         cls.__observe_lock__ = threading.RLock()  # type: ignore[attr-defined]
 
@@ -269,7 +265,7 @@ def add_observer(obj: Any, attr: str, callback: Observer) -> None:
                             observer(old_value, value)
                 is_observing[name] = False
 
-        cls.__setattr__ = new_setattr  # type: ignore[assignment]
+        cls.__setattr__ = new_setattr  # type: ignore[assignment, method-assign]
 
     # Increment refcount only once per observed instance
     if first_time_for_instance:
@@ -317,9 +313,11 @@ def remove_observers(obj: Any, attr: Optional[str] = None) -> bool:
                 if finalizer:
                     finalizer.detach()
                 if key_kind == 'weak':
-                    del storage_map[obj]  # type: ignore[index]
+                    assert storage_map is not None
+                    del storage_map[obj]
                 elif key_kind == 'id':
-                    storage_map_id and storage_map_id.pop(id(obj), None)
+                    assert storage_map_id is not None
+                    storage_map_id.pop(id(obj), None)
                 cls = obj.__class__
                 if hasattr(cls, '__observe_refcount__'):
                     cls.__observe_refcount__ -= 1  # type: ignore[attr-defined]

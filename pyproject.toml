@@ -34,5 +34,9 @@ Source = "https://github.com/ravegoth/obj-observe"
 [tool.setuptools]
 include-package-data = true
 
+[tool.setuptools.packages.find]
+include = ["obj_observe*"]
+exclude = ["tests*", "artifacts*", "py_observe*"]
+
 [tool.setuptools.package-data]
 obj_observe = ["py.typed"]
