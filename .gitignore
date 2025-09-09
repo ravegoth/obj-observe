@@ -5,4 +5,19 @@ build/
 dist/
 *.egg-info/
 artifacts/
-
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.tmp
+.env
+.python-version
+# stray local files
+py_observe/
+test.py
