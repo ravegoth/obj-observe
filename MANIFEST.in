@@ -2,3 +2,11 @@ include LICENSE
 include README.md
 recursive-include obj_observe *.py
 include obj_observe/py.typed
+recursive-exclude tests *
+recursive-exclude artifacts *
+recursive-exclude .github *
+recursive-exclude .venv *
+recursive-exclude .vscode *
+recursive-exclude __pycache__ *
+exclude *.log
+exclude *.tmp

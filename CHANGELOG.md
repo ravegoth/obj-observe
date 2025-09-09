@@ -16,5 +16,10 @@ Changelog
 
 ## v0.1.4
 
+## v0.1.5
+
+- Packaging: tighten sdist contents to avoid including tests, caches, and local artifacts.
+- MANIFEST.in now excludes: `tests/`, `artifacts/`, `.github/`, `.venv/`, `.vscode/`, `__pycache__/`, and common temp/log files.
+
 - Broaden Python support to 3.8+ (was 3.9+).
 - Add Python 3.8 classifier in packaging metadata.
