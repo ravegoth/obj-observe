@@ -237,5 +237,69 @@ class TestObserve(unittest.TestCase):
         p.hp = 3
         self.assertEqual(calls, ['a', 'b'])
 
+    def test_slotted_without_weakref_fallback(self):
+        class S:
+            __slots__ = ('v',)
+            def __init__(self):
+                self.v = 0
+        s = S()
+        seen = []
+        observe(s, 'v', lambda o, n: seen.append(n))
+        s.v = 1
+        self.assertEqual(seen, [1])
+
+    def test_slotted_with_weakref_gc_cleanup(self):
+        import gc, weakref as _wr
+        class W:
+            __slots__ = ('v', '__weakref__')
+            def __init__(self):
+                self.v = 0
+        w = W()
+        observe(w, 'v', lambda o, n: None)
+        wref = _wr.ref(w)
+        # Drop strong ref and collect
+        del w
+        gc.collect()
+        self.assertIsNone(wref())
+        # Class should eventually restore original setattr when no instances observed
+        self.assertFalse(hasattr(W, '__original_setattr__') and hasattr(W, '__observe_refcount__'))
+
+    def test_bound_method_observer_does_not_keep_instance_alive(self):
+        import gc, weakref as _wr
+        class Emitter:
+            def __init__(self):
+                self.x = 0
+            def on_x(self, o, n):
+                pass
+        em = Emitter()
+        # Bound method should be wrapped via WeakMethod and not keep 'em' alive
+        observe(em, 'x', em.on_x)
+        wref = _wr.ref(em)
+        del em
+        gc.collect()
+        self.assertIsNone(wref())
+
+    def test_thread_safety_concurrent_sets(self):
+        import threading
+        class T:
+            def __init__(self):
+                self.v = 0
+        t = T()
+        vals = []
+        lock = threading.Lock()
+        observe(t, 'v', lambda o, n: (lock.acquire(), vals.append(n), lock.release()))
+
+        def worker(n):
+            for _ in range(100):
+                t.v = n
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+        # We should have recorded many values and not deadlocked
+        self.assertGreater(len(vals), 0)
+
 if __name__ == '__main__':
     unittest.main()
